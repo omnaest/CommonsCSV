@@ -118,6 +118,20 @@ public class CSVUtils
 	}
 
 	/**
+	 * Similar to {@link #parse(InputStream, CSVFormat, Charset)}
+	 * 
+	 * @param file
+	 * @param csvFormat
+	 * @param charset
+	 * @return
+	 * @throws IOException
+	 */
+	public static Stream<Map<String, String>> parse(File file, CSVFormat csvFormat, Charset charset) throws IOException
+	{
+		return parse(IOUtils.toBufferedInputStream(new FileInputStream(file)), csvFormat, charset);
+	}
+
+	/**
 	 * Parses the given {@link InputStream} with the given {@link CSVFormat} and {@link Charset}
 	 *
 	 * @param inputStream
@@ -145,8 +159,7 @@ public class CSVUtils
 				}
 				retlist.add(map);
 			}
-		}
-		finally
+		} finally
 		{
 			parser.close();
 			reader.close();
@@ -207,16 +220,14 @@ public class CSVUtils
 								try
 								{
 									csvPrinter.printRecord(map.values());
-								}
-								catch (IOException e)
+								} catch (IOException e)
 								{
 									throw new IllegalArgumentException(e);
 								}
 							});
 
 			csvPrinter.close();
-		}
-		catch (Exception e)
+		} catch (Exception e)
 		{
 			throw new IllegalStateException(e);
 		}
