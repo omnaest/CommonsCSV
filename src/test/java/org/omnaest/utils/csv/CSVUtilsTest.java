@@ -33,10 +33,13 @@ public class CSVUtilsTest
 {
 
 	@Test
-	public void testParseInputStream() throws Exception
+	public void testGetInputStream() throws Exception
 	{
-		List<Map<String, String>> data = CSVUtils	.parse(this	.getClass()
+		List<Map<String, String>> data = CSVUtils	.parse()
+													.from(this	.getClass()
 																.getResourceAsStream("/ACTIVITIES.csv"))
+													.enableStreaming()
+													.get()
 													.collect(Collectors.toList());
 
 		//System.out.println(JSONHelper.prettyPrint(data.get(0)));
