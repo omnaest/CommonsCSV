@@ -25,6 +25,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.io.StringReader;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -52,351 +54,420 @@ import org.omnaest.utils.StreamUtils;
  */
 public class CSVUtils
 {
-	/**
-	 * Similar to {@link #parse(InputStream)} with a buffered {@link FileInputStream}
-	 *
-	 * @param file
-	 * @return
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(File file) throws FileNotFoundException, IOException
-	{
-		return parse(IOUtils.toBufferedInputStream(new FileInputStream(file)));
-	}
+    /**
+     * Similar to {@link #parse(InputStream)} with a buffered {@link FileInputStream}
+     *
+     * @param file
+     * @return
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(File file) throws FileNotFoundException, IOException
+    {
+        return parse(IOUtils.toBufferedInputStream(new FileInputStream(file)));
+    }
 
-	/**
-	 * Similar to {@link #parse(String, Charset)} with {@link StandardCharsets#UTF_8}
-	 *
-	 * @param content
-	 * @return
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(String content) throws FileNotFoundException, IOException
-	{
-		return parse(content, StandardCharsets.UTF_8);
-	}
+    /**
+     * Similar to {@link #parse(String, Charset)} with {@link StandardCharsets#UTF_8}
+     *
+     * @param content
+     * @return
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(String content) throws FileNotFoundException, IOException
+    {
+        return parse(content, StandardCharsets.UTF_8);
+    }
 
-	/**
-	 * Similar to {@link #parse(InputStream)} the given {@link String} content with the given {@link Charset}
-	 *
-	 * @param content
-	 * @param charset
-	 * @return
-	 * @throws FileNotFoundException
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(String content, Charset charset) throws FileNotFoundException, IOException
-	{
-		return parse(IOUtils.toInputStream(content, charset));
-	}
+    /**
+     * Similar to {@link #parse(InputStream)} the given {@link String} content with the given {@link Charset}
+     *
+     * @param content
+     * @param charset
+     * @return
+     * @throws FileNotFoundException
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(String content, Charset charset) throws FileNotFoundException, IOException
+    {
+        return parse(IOUtils.toInputStream(content, charset));
+    }
 
-	/**
-	 * Similar to {@link #parse(InputStream, CSVFormat)} uses {@link CSVFormat#EXCEL} with headers
-	 *
-	 * @param inputStream
-	 * @return
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(InputStream inputStream) throws IOException
-	{
-		return parse(inputStream, CSVFormat.EXCEL.withHeader());
-	}
+    /**
+     * Similar to {@link #parse(InputStream, CSVFormat)} uses {@link CSVFormat#EXCEL} with headers
+     *
+     * @param inputStream
+     * @return
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(InputStream inputStream) throws IOException
+    {
+        return parse(inputStream, CSVFormat.EXCEL.withHeader());
+    }
 
-	/**
-	 * Similar to {@link #parse(InputStream, CSVFormat, Charset)} using {@link StandardCharsets#UTF_8}
-	 *
-	 * @param inputStream
-	 * @param csvFormat
-	 * @return
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(InputStream inputStream, CSVFormat csvFormat) throws IOException
-	{
-		return parse(inputStream, csvFormat, StandardCharsets.UTF_8);
-	}
+    /**
+     * Similar to {@link #parse(InputStream, CSVFormat, Charset)} using {@link StandardCharsets#UTF_8}
+     *
+     * @param inputStream
+     * @param csvFormat
+     * @return
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(InputStream inputStream, CSVFormat csvFormat) throws IOException
+    {
+        return parse(inputStream, csvFormat, StandardCharsets.UTF_8);
+    }
 
-	/**
-	 * Similar to {@link #parse(InputStream, CSVFormat, Charset)}
-	 * 
-	 * @param file
-	 * @param csvFormat
-	 * @param charset
-	 * @return
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(File file, CSVFormat csvFormat, Charset charset) throws IOException
-	{
-		return parse(IOUtils.toBufferedInputStream(new FileInputStream(file)), csvFormat, charset);
-	}
+    /**
+     * Similar to {@link #parse(InputStream, CSVFormat, Charset)}
+     * 
+     * @param file
+     * @param csvFormat
+     * @param charset
+     * @return
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(File file, CSVFormat csvFormat, Charset charset) throws IOException
+    {
+        return parse(IOUtils.toBufferedInputStream(new FileInputStream(file)), csvFormat, charset);
+    }
 
-	/**
-	 * Similar to {@link #parse(InputStream, CSVFormat, Charset, boolean)} with loading and parsing everything in memory first.
-	 * 
-	 * @param inputStream
-	 * @param csvFormat
-	 * @param charset
-	 * @return
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(InputStream inputStream, CSVFormat csvFormat, Charset charset) throws IOException
-	{
-		boolean streaming = false;
-		return parse(inputStream, csvFormat, charset, streaming);
-	}
+    /**
+     * Similar to {@link #parse(InputStream, CSVFormat, Charset, boolean)} with loading and parsing everything in memory first.
+     * 
+     * @param inputStream
+     * @param csvFormat
+     * @param charset
+     * @return
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(InputStream inputStream, CSVFormat csvFormat, Charset charset) throws IOException
+    {
+        boolean streaming = false;
+        return parse(inputStream, csvFormat, charset, streaming);
+    }
 
-	/**
-	 * Parses the given {@link InputStream} with the given {@link CSVFormat} and {@link Charset}. If streaming is set to true, the parser will parse record by
-	 * record, but the returned {@link Stream} has to be closed explicitly, otherwise the whole content of the csv is parsed in memory first and than the result
-	 * {@link Stream} returned without the need to close it manually.
-	 * 
-	 * @param inputStream
-	 * @param csvFormat
-	 * @param charset
-	 * @param streaming
-	 * @return
-	 * @throws IOException
-	 */
-	public static Stream<Map<String, String>> parse(InputStream inputStream, CSVFormat csvFormat, Charset charset, boolean streaming) throws IOException
-	{
-		Stream<Map<String, String>> retval;
+    /**
+     * Parses the given {@link InputStream} with the given {@link CSVFormat} and {@link Charset}. If streaming is set to true, the parser will parse record by
+     * record, but the returned {@link Stream} has to be closed explicitly, otherwise the whole content of the csv is parsed in memory first and than the result
+     * {@link Stream} returned without the need to close it manually.
+     * 
+     * @param inputStream
+     * @param csvFormat
+     * @param charset
+     * @param streaming
+     * @return
+     * @throws IOException
+     */
+    public static Stream<Map<String, String>> parse(InputStream inputStream, CSVFormat csvFormat, Charset charset, boolean streaming) throws IOException
+    {
+        Reader reader = new InputStreamReader(new BOMInputStream(inputStream), charset);
+        return parse(reader, csvFormat, streaming);
+    }
 
-		Reader reader = new InputStreamReader(new BOMInputStream(inputStream), charset);
-		CSVParser parser = new CSVParser(reader, csvFormat);
+    private static Stream<Map<String, String>> parse(Reader reader, CSVFormat csvFormat, boolean streaming) throws IOException
+    {
+        Stream<Map<String, String>> retval;
 
-		retval = StreamUtils.fromIterator(parser.iterator())
-							.map(record ->
-							{
-								Map<String, String> map = new LinkedHashMap<>();
-								Map<String, Integer> headerMap = parser.getHeaderMap();
-								if (headerMap != null)
-								{
-									for (String column : headerMap.keySet())
-									{
-										final String value = record.get(column);
-										map.put(column, value);
-									}
-								}
-								else
-								{
-									AtomicInteger index = new AtomicInteger();
-									map.putAll(StreamUtils	.fromIterator(record.iterator())
-															.collect(Collectors.toMap(value -> "" + index.getAndIncrement(), value -> value)));
-								}
-								return map;
-							})
-							.onClose(() ->
-							{
-								try
-								{
-									parser.close();
-								} catch (IOException e)
-								{
-								}
-								try
-								{
-									reader.close();
-								} catch (IOException e)
-								{
-								}
-							});
+        CSVParser parser = new CSVParser(reader, csvFormat);
 
-		if (!streaming)
-		{
-			List<Map<String, String>> list;
-			try
-			{
-				list = retval.collect(Collectors.toList());
-			} finally
-			{
-				retval.close();
-			}
-			retval = list.stream();
-		}
+        retval = StreamUtils.fromIterator(parser.iterator())
+                            .map(record ->
+                            {
+                                Map<String, String> map = new LinkedHashMap<>();
+                                Map<String, Integer> headerMap = parser.getHeaderMap();
+                                if (headerMap != null)
+                                {
+                                    for (String column : headerMap.keySet())
+                                    {
+                                        final String value = record.get(column);
+                                        map.put(column, value);
+                                    }
+                                }
+                                else
+                                {
+                                    AtomicInteger index = new AtomicInteger();
+                                    map.putAll(StreamUtils.fromIterator(record.iterator())
+                                                          .collect(Collectors.toMap(value -> "" + index.getAndIncrement(), value -> value)));
+                                }
+                                return map;
+                            })
+                            .onClose(() ->
+                            {
+                                try
+                                {
+                                    parser.close();
+                                }
+                                catch (IOException e)
+                                {
+                                }
+                                try
+                                {
+                                    reader.close();
+                                }
+                                catch (IOException e)
+                                {
+                                }
+                            });
 
-		return retval;
-	}
+        if (!streaming)
+        {
+            List<Map<String, String>> list;
+            try
+            {
+                list = retval.collect(Collectors.toList());
+            }
+            finally
+            {
+                retval.close();
+            }
+            retval = list.stream();
+        }
 
-	public static interface Parser
-	{
-		ParserInputStreamLoaded from(InputStream inputStream);
+        return retval;
+    }
 
-		ParserInputStreamLoaded from(File file) throws FileNotFoundException;
-	}
+    public static interface Parser
+    {
 
-	public static interface ParserLoadedAndFormatDeclared
-	{
-		/**
-		 * Activates the stream mode, which means the content of the given csv source is not loaded into memory, instead it is parsed as the {@link Stream} goes
-		 * by. If this is not enabled, the parser will pull everything into memory first and parses everything before the parsed stream is returned.
-		 * 
-		 * @return this
-		 */
-		public ParserLoadedAndFormatDeclared enableStreaming();
+        ParserLoaded from(String content);
 
-		public Stream<Map<String, String>> get() throws IOException;
-	}
+        ParserLoaded from(Reader reader);
 
-	public static interface ParserLoaded extends ParserLoadedAndFormatDeclared
-	{
-		public ParserLoadedAndFormatDeclared withFormat(CSVFormat csvFormat);
+        ParserInputStreamLoaded from(InputStream inputStream);
 
-		@Override
-		public ParserLoaded enableStreaming();
-	}
+        ParserInputStreamLoaded from(File file) throws FileNotFoundException;
 
-	public static interface ParserInputStreamLoaded extends ParserLoaded
-	{
-		/**
-		 * Default is {@link StandardCharsets#UTF_8}
-		 * 
-		 * @see StandardCharsets
-		 * @param charset
-		 * @return
-		 */
-		public ParserLoaded withEncoding(Charset charset);
-	}
+    }
 
-	public static Parser parse()
-	{
-		return new Parser()
-		{
-			@Override
-			public ParserInputStreamLoaded from(File file) throws FileNotFoundException
-			{
-				return this.from(new FileInputStream(file));
-			}
+    public static interface ParserLoadedAndFormatDeclared
+    {
+        /**
+         * Activates the stream mode, which means the content of the given csv source is not loaded into memory, instead it is parsed as the {@link Stream} goes
+         * by. If this is not enabled, the parser will pull everything into memory first and parses everything before the parsed stream is returned.
+         * 
+         * @return this
+         */
+        public ParserLoadedAndFormatDeclared enableStreaming();
 
-			@Override
-			public ParserInputStreamLoaded from(InputStream inputStream)
-			{
-				return new ParserInputStreamLoaded()
-				{
-					private Charset		charset		= StandardCharsets.UTF_8;
-					private CSVFormat	csvFormat	= CSVFormat.EXCEL.withHeader();
-					private boolean		streaming	= false;
+        public Stream<Map<String, String>> get() throws IOException;
+    }
 
-					@Override
-					public ParserLoaded withEncoding(Charset charset)
-					{
-						this.charset = charset;
-						return this;
-					}
+    public static interface ParserLoaded extends ParserLoadedAndFormatDeclared
+    {
+        public ParserLoadedAndFormatDeclared withFormat(CSVFormat csvFormat);
 
-					@Override
-					public ParserLoadedAndFormatDeclared withFormat(CSVFormat csvFormat)
-					{
-						this.csvFormat = csvFormat;
-						return this;
-					}
+        @Override
+        public ParserLoaded enableStreaming();
+    }
 
-					@Override
-					public Stream<Map<String, String>> get() throws IOException
-					{
+    public static interface ParserInputStreamLoaded extends ParserLoaded
+    {
+        /**
+         * Default is {@link StandardCharsets#UTF_8}
+         * 
+         * @see StandardCharsets
+         * @param charset
+         * @return
+         */
+        public ParserLoaded withEncoding(Charset charset);
+    }
 
-						return CSVUtils.parse(inputStream, this.csvFormat, this.charset, this.streaming);
-					}
+    public static Parser parse()
+    {
+        return new Parser()
+        {
+            @Override
+            public ParserInputStreamLoaded from(File file) throws FileNotFoundException
+            {
+                return this.from(new FileInputStream(file));
+            }
 
-					@Override
-					public ParserLoaded enableStreaming()
-					{
-						this.streaming = true;
-						return this;
-					}
-				};
-			}
-		};
-	}
+            @Override
+            public ParserLoaded from(String content)
+            {
+                return this.from(new StringReader(content));
+            }
 
-	public static interface SerializationOutput
-	{
-		/**
-		 * Returns the csv content as {@link String}
-		 *
-		 * @return
-		 */
-		public String get();
+            @Override
+            public ParserInputStreamLoaded from(InputStream inputStream)
+            {
+                return new ParserInputStreamLoaded()
+                {
+                    private Charset   charset   = StandardCharsets.UTF_8;
+                    private CSVFormat csvFormat = CSVFormat.EXCEL.withHeader();
+                    private boolean   streaming = false;
 
-		/**
-		 * @see #withCharset(Charset)
-		 * @param file
-		 * @throws IOException
-		 */
-		public void writeTo(File file) throws IOException;
+                    @Override
+                    public ParserLoaded withEncoding(Charset charset)
+                    {
+                        this.charset = charset;
+                        return this;
+                    }
 
-		/**
-		 * Uses the given {@link Charset} in subsequent operations
-		 *
-		 * @param charset
-		 * @return
-		 */
-		public SerializationOutput withCharset(Charset charset);
-	}
+                    @Override
+                    public ParserLoadedAndFormatDeclared withFormat(CSVFormat csvFormat)
+                    {
+                        this.csvFormat = csvFormat;
+                        return this;
+                    }
 
-	public static SerializationOutput serialize(Stream<Map<String, String>> data)
-	{
-		return serialize(data, CSVFormat.EXCEL.withHeader());
-	}
+                    @Override
+                    public Stream<Map<String, String>> get() throws IOException
+                    {
+                        return CSVUtils.parse(inputStream, this.csvFormat, this.charset, this.streaming);
+                    }
 
-	public static SerializationOutput serialize(Stream<Map<String, String>> data, CSVFormat csvFormat)
-	{
-		//
-		Appendable serializationOutput = new StringBuilder();
-		try
-		{
-			List<Map<String, String>> collectedData = data == null ? Collections.emptyList() : data	.filter(map -> map != null)
-																									.collect(Collectors.toList());
+                    @Override
+                    public ParserLoaded enableStreaming()
+                    {
+                        this.streaming = true;
+                        return this;
+                    }
+                };
+            }
 
-			Set<String> headers = collectedData	.stream()
-												.flatMap(map -> map	.keySet()
-																	.stream())
-												.collect(Collectors.toCollection(() -> new LinkedHashSet<>()));
+            @Override
+            public ParserLoaded from(Reader reader)
+            {
+                return new ParserLoaded()
+                {
+                    private CSVFormat csvFormat = CSVFormat.EXCEL.withHeader();
+                    private boolean   streaming = false;
 
-			CSVPrinter csvPrinter = csvFormat	.withHeader(headers.toArray(new String[0]))
-												.print(serializationOutput);
-			collectedData	.stream()
-							.forEach(map ->
-							{
-								try
-								{
-									csvPrinter.printRecord(map.values());
-								} catch (IOException e)
-								{
-									throw new IllegalArgumentException(e);
-								}
-							});
+                    @Override
+                    public ParserLoadedAndFormatDeclared withFormat(CSVFormat csvFormat)
+                    {
+                        this.csvFormat = csvFormat;
+                        return this;
+                    }
 
-			csvPrinter.close();
-		} catch (Exception e)
-		{
-			throw new IllegalStateException(e);
-		}
+                    @Override
+                    public Stream<Map<String, String>> get() throws IOException
+                    {
+                        return CSVUtils.parse(reader, this.csvFormat, this.streaming);
+                    }
 
-		//
-		return new SerializationOutput()
-		{
-			private Charset charset = StandardCharsets.UTF_8;
+                    @Override
+                    public ParserLoaded enableStreaming()
+                    {
+                        this.streaming = true;
+                        return this;
+                    }
+                };
+            }
+        };
+    }
 
-			@Override
-			public SerializationOutput withCharset(Charset charset)
-			{
-				this.charset = charset;
-				return this;
-			}
+    public static interface SerializationOutput
+    {
+        /**
+         * Returns the csv content as {@link String}
+         *
+         * @return
+         */
+        public String get();
 
-			@Override
-			public void writeTo(File file) throws IOException
-			{
+        /**
+         * @see #withCharset(Charset)
+         * @param file
+         * @throws IOException
+         */
+        public void writeTo(File file) throws IOException;
 
-				FileUtils.writeStringToFile(file, serializationOutput.toString(), this.charset);
-			}
+        /**
+         * Uses the given {@link Charset} in subsequent operations
+         *
+         * @param charset
+         * @return
+         */
+        public SerializationOutput withCharset(Charset charset);
+    }
 
-			@Override
-			public String get()
-			{
-				return serializationOutput.toString();
-			}
-		};
-	}
+    public static SerializationOutput serialize(Stream<Map<String, String>> data)
+    {
+        return serialize(data, CSVFormat.EXCEL.withHeader());
+    }
+
+    public static SerializationOutput serialize(Stream<Map<String, String>> data, CSVFormat csvFormat)
+    {
+        //
+        Appendable serializationOutput = new StringBuilder();
+        try
+        {
+            List<Map<String, String>> collectedData = data == null ? Collections.emptyList()
+                    : data.filter(map -> map != null)
+                          .collect(Collectors.toList());
+
+            Set<String> headers = collectedData.stream()
+                                               .flatMap(map -> map.keySet()
+                                                                  .stream())
+                                               .collect(Collectors.toCollection(() -> new LinkedHashSet<>()));
+
+            CSVPrinter csvPrinter = csvFormat.withHeader(headers.toArray(new String[0]))
+                                             .print(serializationOutput);
+            collectedData.stream()
+                         .forEach(map ->
+                         {
+                             try
+                             {
+                                 csvPrinter.printRecord(map.values());
+                             }
+                             catch (IOException e)
+                             {
+                                 throw new IllegalArgumentException(e);
+                             }
+                         });
+
+            csvPrinter.close();
+        }
+        catch (Exception e)
+        {
+            throw new IllegalStateException(e);
+        }
+
+        //
+        return new SerializationOutput()
+        {
+            private Charset charset = StandardCharsets.UTF_8;
+
+            @Override
+            public SerializationOutput withCharset(Charset charset)
+            {
+                this.charset = charset;
+                return this;
+            }
+
+            @Override
+            public void writeTo(File file) throws IOException
+            {
+
+                FileUtils.writeStringToFile(file, serializationOutput.toString(), this.charset);
+            }
+
+            @Override
+            public String get()
+            {
+                return serializationOutput.toString();
+            }
+        };
+    }
+
+    public static Function<String, Stream<Map<String, String>>> deserializer(CSVFormat csvFormat)
+    {
+        return content ->
+        {
+            try
+            {
+                return parse().from(content)
+                              .withFormat(csvFormat)
+                              .get();
+            }
+            catch (IOException e)
+            {
+                throw new IllegalStateException(e);
+            }
+        };
+    }
 }
