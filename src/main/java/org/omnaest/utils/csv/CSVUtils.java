@@ -45,6 +45,7 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BOMInputStream;
+import org.omnaest.utils.CollectorUtils;
 import org.omnaest.utils.StreamUtils;
 
 /**
@@ -189,7 +190,8 @@ public class CSVUtils
                                 {
                                     AtomicInteger index = new AtomicInteger();
                                     map.putAll(StreamUtils.fromIterator(record.iterator())
-                                                          .collect(Collectors.toMap(value -> "" + index.getAndIncrement(), value -> value)));
+                                                          .collect(CollectorUtils.toMap(e -> "" + index.getAndIncrement(), e -> e,
+                                                                                        () -> new LinkedHashMap<String, String>())));
                                 }
                                 return map;
                             })
