@@ -18,16 +18,25 @@
 */
 package org.omnaest.utils.csv;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.StringReader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -35,7 +44,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -47,6 +58,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BOMInputStream;
 import org.omnaest.utils.CollectorUtils;
 import org.omnaest.utils.StreamUtils;
+import org.omnaest.utils.element.cached.CachedElement;
 
 /**
  * Helper for reading and writing CSV files
@@ -73,10 +85,8 @@ public class CSVUtils
      *
      * @param content
      * @return
-     * @throws FileNotFoundException
-     * @throws IOException
      */
-    public static Stream<Map<String, String>> parse(String content) throws FileNotFoundException, IOException
+    public static Stream<Map<String, String>> parse(String content)
     {
         return parse(content, StandardCharsets.UTF_8);
     }
@@ -87,12 +97,17 @@ public class CSVUtils
      * @param content
      * @param charset
      * @return
-     * @throws FileNotFoundException
-     * @throws IOException
      */
-    public static Stream<Map<String, String>> parse(String content, Charset charset) throws FileNotFoundException, IOException
+    public static Stream<Map<String, String>> parse(String content, Charset charset)
     {
-        return parse(IOUtils.toInputStream(content, charset));
+        try
+        {
+            return parse(IOUtils.toInputStream(content, charset));
+        }
+        catch (IOException e)
+        {
+            throw new IllegalArgumentException(e);
+        }
     }
 
     /**
@@ -471,5 +486,217 @@ public class CSVUtils
                 throw new IllegalStateException(e);
             }
         };
+    }
+
+    public static interface CSVSerializationConsumer
+    {
+        public CSVSerializationConsumer withCSVFormat(CSVFormat csvFormat);
+
+        public CSVSerializationConsumer withHeaders(String... headers);
+
+        public CSVSerializationConsumer withHeaders(Collection<String> headers);
+
+        public CSVSerializationConsumer withNoHeaders();
+
+        public AttachedCSVSerializationConsumer into(Writer writer) throws IOException;
+
+        public AttachedCSVSerializationConsumer into(OutputStream outputStream) throws IOException;
+
+        public AttachedCSVSerializationConsumer into(File file) throws IOException;
+
+        public String intoString(Stream<Map<String, String>> rows);
+    }
+
+    public static interface AttachedCSVSerializationConsumer extends Consumer<Map<String, String>>, AutoCloseable
+    {
+        /**
+         * Specifies the {@link Charset}. Default is {@link StandardCharsets#UTF_8}
+         * 
+         * @param charset
+         * @return
+         */
+        public AttachedCSVSerializationConsumer withEncoding(Charset charset);
+    }
+
+    private static final class CSVSerializationConsumerImpl implements CSVSerializationConsumer, AttachedCSVSerializationConsumer
+    {
+        private List<String>         headers;
+        private boolean              noHeaders  = false;
+        private CSVFormat            csvFormat  = CSVFormat.DEFAULT;
+        private Charset              charset    = StandardCharsets.UTF_8;
+        private Writer               writer;
+        private Supplier<CSVPrinter> csvPrinter = CachedElement.of(() -> this.createCSVPrinter());
+
+        @Override
+        public CSVSerializationConsumer withHeaders(String... headers)
+        {
+            this.withHeaders(Arrays.asList(headers));
+            return this;
+        }
+
+        private CSVPrinter createCSVPrinter()
+        {
+            try
+            {
+                if (this.noHeaders)
+                {
+                    return this.csvFormat.print(this.writer);
+                }
+                else
+                {
+                    return this.csvFormat.withHeader(this.headers.toArray(new String[0]))
+                                         .print(this.writer);
+                }
+            }
+            catch (IOException e)
+            {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        @Override
+        public CSVSerializationConsumer withNoHeaders()
+        {
+            this.noHeaders = true;
+            return this;
+        }
+
+        @Override
+        public CSVSerializationConsumer withHeaders(Collection<String> headers)
+        {
+            this.headers = headers.stream()
+                                  .collect(Collectors.toList());
+            return this;
+        }
+
+        @Override
+        public CSVSerializationConsumer withCSVFormat(CSVFormat csvFormat)
+        {
+            this.csvFormat = csvFormat;
+            return this;
+        }
+
+        @Override
+        public AttachedCSVSerializationConsumer into(Writer writer) throws IOException
+        {
+            this.writer = writer;
+            return this;
+        }
+
+        @Override
+        public AttachedCSVSerializationConsumer into(OutputStream outputStream) throws IOException
+        {
+            return this.into(new OutputStreamWriter(new BufferedOutputStream(outputStream), this.charset));
+        }
+
+        @Override
+        public AttachedCSVSerializationConsumer into(File file) throws IOException
+        {
+            FileUtils.forceMkdirParent(file);
+            return this.into(new FileOutputStream(file));
+        }
+
+        @Override
+        public void accept(Map<String, String> row)
+        {
+            if (this.noHeaders)
+            {
+                try
+                {
+                    this.csvPrinter.get()
+                                   .printRecords(row.values());
+                }
+                catch (IOException e)
+                {
+                    throw new IllegalStateException(e);
+                }
+            }
+            else
+            {
+                //
+                this.generateHeadersIfNotPresent(row);
+
+                //
+                List<String> records = new ArrayList<>();
+                if (this.headers != null)
+                {
+                    for (String header : this.headers)
+                    {
+                        String value = row.get(header);
+                        records.add(value);
+                    }
+                }
+                try
+                {
+                    this.csvPrinter.get()
+                                   .printRecords(Arrays.asList(records));
+                }
+                catch (IOException e)
+                {
+                    throw new IllegalStateException(e);
+                }
+            }
+
+            try
+            {
+                this.csvPrinter.get()
+                               .flush();
+            }
+            catch (IOException e)
+            {
+                throw new IllegalStateException(e);
+            }
+
+        }
+
+        private void generateHeadersIfNotPresent(Map<String, String> row)
+        {
+            if (this.headers == null)
+            {
+                this.withHeaders(row.keySet()
+                                    .stream()
+                                    .collect(Collectors.toList()));
+            }
+        }
+
+        @Override
+        public AttachedCSVSerializationConsumer withEncoding(Charset charset)
+        {
+            this.charset = charset;
+            return this;
+        }
+
+        @Override
+        public void close() throws Exception
+        {
+            this.csvPrinter.get()
+                           .close();
+        }
+
+        @Override
+        public String intoString(Stream<Map<String, String>> rows)
+        {
+            StringWriter writer = new StringWriter();
+            try
+            {
+                AttachedCSVSerializationConsumer consumer = this.into(writer);
+                rows.forEach(consumer);
+            }
+            catch (IOException e)
+            {
+                throw new IllegalStateException(e);
+            }
+            return writer.toString();
+        }
+    }
+
+    /**
+     * Returns a {@link CSVSerializationConsumer} which allows to consume any data row {@link Map} and append it to a given output channel.
+     * 
+     * @return
+     */
+    public static CSVSerializationConsumer serializer()
+    {
+        return new CSVSerializationConsumerImpl();
     }
 }
