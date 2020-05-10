@@ -269,6 +269,7 @@ public class CSVUtils
         public ParserLoadedAndFormatDeclared enableStreaming();
 
         public Stream<Map<String, String>> get() throws IOException;
+
     }
 
     public static interface ParserLoaded extends ParserLoadedAndFormatDeclared
@@ -342,6 +343,7 @@ public class CSVUtils
                         this.streaming = true;
                         return this;
                     }
+
                 };
             }
 
@@ -372,6 +374,7 @@ public class CSVUtils
                         this.streaming = true;
                         return this;
                     }
+
                 };
             }
         };
